@@ -7,12 +7,12 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
-const userRoutes = require("./routes/userRoutes");
-app.use("/api/users", userRoutes);
-
-// TODO: add game, video routes...
+app.use("/api/users", require("./routes/userRoutes"));
+app.use("/api/game", require("./routes/gameRoutes"));
+app.use("/api/videos", require("./routes/videoRoutes"));
+app.use("/api/history", require("./routes/historyRoutes"));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Backend running at http://localhost:${PORT}`);
 });

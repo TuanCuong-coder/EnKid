@@ -12,3 +12,10 @@ exports.getAllUsers = async () => {
   const [rows] = await db.execute("SELECT * FROM users");
   return rows;
 };
+
+exports.addScore = async (user_id, score) => {
+  await db.execute(
+    "UPDATE users SET total_score = total_score + ? WHERE id = ?",
+    [score, user_id]
+  );
+};

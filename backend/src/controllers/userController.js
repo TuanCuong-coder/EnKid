@@ -10,3 +10,8 @@ exports.getAllUsers = async (req, res) => {
   const users = await userModel.getAllUsers();
   res.json(users);
 };
+
+exports.getUserById = async (id) => {
+  const [rows] = await db.execute("SELECT * FROM users WHERE id = ?", [id]);
+  return rows[0];
+};
