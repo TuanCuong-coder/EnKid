@@ -1,95 +1,79 @@
-// screens/KeoThaScreen.js
+// src/screens/KeoThaScreen.js
 
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, Alert } from 'react-native';
-import Draggable from 'react-native-draggable';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  PanResponder,
+  Animated,
+  Alert,
+} from 'react-native';
+import Tts from 'react-native-tts';
 import { keoThaData } from '../data/keoThaData';
-import { TouchableOpacity } from 'react-native-gesture-handler';
 
 export default function KeoThaScreen({ navigation }) {
-  const [dropped, setDropped] = useState([]);
-  const data = keoThaData[0];
+  const [index, setIndex] = useState(0);
+  const [dragWord, setDragWord] = useState('');
+  const [dropCorrect, setDropCorrect] = useState(false);
+  const [pan] = useState(new Animated.ValueXY());
 
-  const handleDrop = (word, targetWord) => {
-    const alreadyDropped = dropped.find(d => d.word === word);
-    if (alreadyDropped) return;
+  const current = keoThaData[index];
 
-    const isCorrect = word === targetWord;
-    setDropped(prev => [...prev, { word, targetWord, isCorrect }]);
+  useEffect(() => {
+    setDragWord(current.word);
+    Tts.speak(current.word);
+  }, [index]);
 
-    if (dropped.length + 1 === data.pairs.length) {
-      setTimeout(() => {
-        const allCorrect = dropped.every(d => d.isCorrect) && isCorrect;
-        if (allCorrect) {
-          Alert.alert('🎉 Hoàn thành!', 'Bạn đã ghép đúng tất cả!');
-          navigation.goBack();
-        } else {
-          Alert.alert('😢 Thử lại!', 'Một số từ chưa đúng!');
-        }
-      }, 1000);
-    }
-  };
+  const panResponder = PanResponder.create({
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
+      useNativeDriver: false,
+    }),
+    onPanResponderRelease: (_, gesture) => {
+      const dropZone = { x: 100, y: 300, width: 150, height: 150 }; // vị trí hình
+      if (
+        gesture.moveX > dropZone.x &&
+        gesture.moveX < dropZone.x + dropZone.width &&
+        gesture.moveY > dropZone.y &&
+        gesture.moveY < dropZone.y + dropZone.height
+      ) {
+        setDropCorrect(true);
+        setTimeout(() => {
+          if (index < keoThaData.length - 1) {
+            setIndex(index + 1);
+            setDropCorrect(false);
+            pan.setValue({ x: 0, y: 0 });
+          } else {
+            Alert.alert('🎉 Hoàn thành!', 'Bạn đã hoàn thành trò chơi!');
+            navigation.goBack();
+          }
+        }, 1000);
+      } else {
+        Animated.spring(pan, {
+          toValue: { x: 0, y: 0 },
+          useNativeDriver: false,
+        }).start();
+      }
+    },
+  });
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>🧠 Kéo từ vào đúng hình</Text>
+      <Text style={styles.title}>🧲 Kéo từ vào hình</Text>
 
-      <View style={styles.targets}>
-        {data.pairs.map((item, index) => (
-          <View key={index} style={styles.targetBox}>
-            <Image source={item.image} style={styles.image} />
-            <TouchableOpacity
-              style={styles.dropZone}
-              onLayout={e => {
-                item.dropLayout = e.nativeEvent.layout;
-              }}
-              onPressIn={() => {}}
-            >
-              <Text style={styles.dropText}>
-                {dropped.find(d => d.targetWord === item.word)?.word ||
-                  '⬇️ Thả vào đây'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ))}
+      <View style={styles.dropZone}>
+        <Image source={current.image} style={styles.image} />
+        {dropCorrect && <Text style={styles.correctText}>✅ Đúng rồi!</Text>}
       </View>
 
-      <View style={styles.draggables}>
-        {data.pairs.map((item, index) => {
-          const isDropped = dropped.find(d => d.word === item.word);
-          if (isDropped) return null;
-
-          return (
-            <Draggable
-              key={index}
-              x={20 + index * 100}
-              y={500}
-              renderSize={80}
-              renderColor="#90e0ef"
-              renderText={item.word}
-              isCircle
-              onShortPressRelease={() => {}}
-              onDragRelease={(e, gestureState, bounds) => {
-                data.pairs.forEach(target => {
-                  const layout = target.dropLayout;
-                  if (!layout) return;
-
-                  const insideX =
-                    bounds.left > layout.x &&
-                    bounds.left < layout.x + layout.width;
-                  const insideY =
-                    bounds.top > layout.y &&
-                    bounds.top < layout.y + layout.height;
-
-                  if (insideX && insideY) {
-                    handleDrop(item.word, target.word);
-                  }
-                });
-              }}
-            />
-          );
-        })}
-      </View>
+      <Animated.View
+        {...panResponder.panHandlers}
+        style={[pan.getLayout(), styles.draggable]}
+      >
+        <Text style={styles.word}>{dragWord}</Text>
+      </Animated.View>
     </View>
   );
 }
@@ -97,48 +81,48 @@ export default function KeoThaScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff7ee',
-    paddingTop: 40,
+    backgroundColor: '#fffbe0',
+    paddingTop: 50,
+    alignItems: 'center',
   },
   title: {
-    fontSize: 22,
-    textAlign: 'center',
+    fontSize: 24,
+    marginBottom: 20,
     fontWeight: 'bold',
   },
-  targets: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 30,
-  },
-  targetBox: {
+  dropZone: {
+    width: 180,
+    height: 180,
+    justifyContent: 'center',
     alignItems: 'center',
-    width: 100,
+    borderWidth: 2,
+    borderColor: '#ccc',
+    borderRadius: 15,
+    backgroundColor: '#f0f0f0',
+    marginBottom: 50,
   },
   image: {
-    width: 80,
-    height: 80,
+    width: 120,
+    height: 120,
     resizeMode: 'contain',
   },
-  dropZone: {
-    marginTop: 10,
-    borderWidth: 1.5,
-    borderColor: '#999',
-    borderRadius: 10,
-    padding: 10,
-    width: 90,
-    alignItems: 'center',
-    backgroundColor: '#f1f1f1',
-  },
-  dropText: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  draggables: {
+  correctText: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 20,
-    flexDirection: 'row',
-    justifyContent: 'center',
+    bottom: -25,
+    fontSize: 16,
+    color: 'green',
+    fontWeight: 'bold',
+  },
+  draggable: {
+    position: 'absolute',
+    bottom: 100,
+    backgroundColor: '#a2e8ff',
+    padding: 15,
+    borderRadius: 10,
+    elevation: 3,
+  },
+  word: {
+    fontSize: 18,
+    fontWeight: '600',
   },
 });
